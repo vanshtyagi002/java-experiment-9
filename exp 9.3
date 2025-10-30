@@ -1,0 +1,138 @@
+--------------------------1.Account.java-------------------------
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "Account")
+public class Account {
+    @Id
+    private int accountId;
+
+    @Column(nullable = false)
+    private String holderName;
+
+    @Column(nullable = false)
+    private double balance;
+
+    public Account() {}
+
+    public Account(int accountId, String holderName, double balance) {
+        this.accountId = accountId;
+        this.holderName = holderName;
+        this.balance = balance;
+    }
+
+    // Getters and setters
+}
+---------------------------------------2.AccountDAO.java-------------------------------
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class AccountDAO {
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    public Account getAccount(int id) {
+        return sessionFactory.getCurrentSession().get(Account.class, id);
+    }
+
+    public void updateAccount(Account acc) {
+        sessionFactory.getCurrentSession().update(acc);
+    }
+}
+
+------------------------------------3. BankService.java----------------------------
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class BankService {
+
+    @Autowired
+    private AccountDAO dao;
+
+    @Transactional
+    public void transferMoney(int fromId, int toId, double amount) {
+        Account from = dao.getAccount(fromId);
+        Account to = dao.getAccount(toId);
+
+        if (from.getBalance() < amount)
+            throw new RuntimeException("Insufficient funds!");
+
+        from.setBalance(from.getBalance() - amount);
+        to.setBalance(to.getBalance() + amount);
+
+        dao.updateAccount(from);
+        dao.updateAccount(to);
+
+        System.out.println("Transfer successful!");
+    }
+}
+----------------------------------4.Spring Configuration (AppConfig.java)--------------------
+import org.springframework.context.annotation.*;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import javax.sql.DataSource;
+import com.zaxxer.hikari.HikariDataSource;
+import java.util.Properties;
+
+@Configuration
+@ComponentScan(basePackages = "com.example.bank")
+@EnableTransactionManagement
+public class AppConfig {
+
+    @Bean
+    public DataSource dataSource() {
+        HikariDataSource ds = new HikariDataSource();
+        ds.setJdbcUrl("jdbc:mysql://localhost:3306/bank_db");
+        ds.setUsername("root");
+        ds.setPassword("your_password");
+        return ds;
+    }
+
+    @Bean
+    public LocalSessionFactoryBean sessionFactory() {
+        LocalSessionFactoryBean sf = new LocalSessionFactoryBean();
+        sf.setDataSource(dataSource());
+        sf.setPackagesToScan("com.example.bank");
+        Properties props = new Properties();
+        props.put("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
+        props.put("hibernate.hbm2ddl.auto", "update");
+        sf.setHibernateProperties(props);
+        return sf;
+    }
+
+    @Bean
+    public org.springframework.orm.hibernate5.HibernateTransactionManager transactionManager() {
+        org.springframework.orm.hibernate5.HibernateTransactionManager txManager =
+                new org.springframework.orm.hibernate5.HibernateTransactionManager();
+        txManager.setSessionFactory(sessionFactory().getObject());
+        return txManager;
+    }
+}
+-----------------------------------------5.MainApp.java-------------------------
+
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class MainApp {
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext context =
+                new AnnotationConfigApplicationContext(AppConfig.class);
+
+        BankService service = context.getBean(BankService.class);
+
+        // Transfer money
+        try {
+            service.transferMoney(1, 2, 500.0);
+        } catch (Exception e) {
+            System.out.println("Transaction failed: " + e.getMessage());
+        }
+
+        context.close();
+    }
+}
+-------------------------------------------------------------------------------------
