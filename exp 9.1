@@ -1,0 +1,63 @@
+-----------------------------1.Course.java------------------------
+public class Course {
+    private String courseName;
+
+    public Course(String courseName) {
+        this.courseName = courseName;
+    }
+
+    public void displayCourse() {
+        System.out.println("Enrolled in course: " + courseName);
+    }
+}
+-----------------------------2.Student.java-----------------------------
+public class Student {
+    private Course course;
+
+    // Constructor-based dependency injection
+    public Student(Course course) {
+        this.course = course;
+    }
+
+    public void showDetails() {
+        System.out.println("Student is registered for:");
+        course.displayCourse();
+    }
+}
+----------------------------AppConfig.java — Java-based Spring Configuration------------------------
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public Course course() {
+        return new Course("Spring Framework Fundamentals");
+    }
+
+    @Bean
+    public Student student() {
+        return new Student(course());
+    }
+}
+-------------------------------------MainApp.java — Running the Application---------------------------------
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class MainApp {
+    public static void main(String[] args) {
+        // Initialize Spring context using Java-based config
+        AnnotationConfigApplicationContext context =
+                new AnnotationConfigApplicationContext(AppConfig.class);
+
+        // Retrieve the student bean
+        Student student = context.getBean(Student.class);
+        student.showDetails();
+
+        context.close();
+    }
+}
+-----------------------------------------OUTPUT----------------------------------------
+Student is registered for:
+Enrolled in course: Spring Framework Fundamentals
+--------------------------------------------------------------------------------------
